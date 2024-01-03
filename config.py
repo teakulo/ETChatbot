@@ -1,0 +1,1 @@
+categorical_features = ['city', 'category', 'genre']

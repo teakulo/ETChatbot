@@ -59,9 +59,6 @@ event_id,name,start_time,end_time,description,venue,city,category,ticket_classes
 58,Salsa Night at The Lounge,2024-12-04 21:00:00,2024-12-05 01:00:00,Immerse yourself in the energetic rhythms of salsa with a night of dancing.,The Lounge,Sarajevo,party,General Admission:20.0 BAM,Salsa Enthusiast Pass:40.0 BAM,4,Dance,20.00 BAM
 59,Craft Beer Tasting: Local Brews Showcase,2024-12-10 18:00:00,2024-12-10 20:30:00,Indulge in the flavors of local craft beers with a tasting experience.,Beer Garden,Sarajevo,culinary,Tasting Pass:15.0 BAM,Beer Connoisseur Pass:30.0 BAM,2,Culinary,15.00 BAM
 60,Art Therapy Workshop: Expressive Creations,2024-12-16 15:30:00,2024-12-16 17:30:00,Discover the healing power of art through expressive and creative activities.,Art Therapy Studio,Mostar,health,Workshop Pass:25.0 BAM,Art Therapist VIP:50.0 BAM,2,Wellness,25.00 BAM
-Certainly! Here are 30 more sample events without the header row:
-
-```csv
 61,Outdoor Yoga Retreat,2024-12-22 08:00:00,2024-12-24 17:00:00,Reconnect with nature and rejuvenate your mind and body.,Neretva Riverbank,Sarajevo,health,Yoga Retreat Pass:60.0 BAM,VIP Experience:100.0 BAM,27,Wellness,60.00 BAM
 62,Eco-Friendly Art Workshop,2024-12-28 13:00:00,2024-12-28 15:30:00,Create art using sustainable and eco-friendly materials.,Green Art Studio,Tuzla,art,Art Workshop Pass:20.0 BAM,2,Visual Arts,20.00 BAM
 63,Sports Expo: Fitness Gear Showcase,2025-01-03 10:00:00,2025-01-03 16:00:00,Discover the latest fitness gear and innovations in the sports industry.,Sarajevo Arena,Sarajevo,sports,Expo Pass:15.0 BAM,6,Sports,15.00 BAM
@@ -78,8 +75,6 @@ Certainly! Here are 30 more sample events without the header row:
 74,Entrepreneurship Summit 2025,2025-03-10 10:00:00,2025-03-10 18:00:00,Gain insights and strategies from successful entrepreneurs.,Innovation Hub,Mostar,business,Summit Pass:60.0 BAM,Entrepreneur VIP:100.0 BAM,8,Business,60.00 BAM
 75,Photography Workshop: Capturing Moments,2025-03-16 14:00:00,2025-03-16 17:00:00,Enhance your photography skills and learn the art of capturing moments.,Creative Studio,Zenica,art,Workshop Pass:30.0 BAM,Photographer's Kit:50.0 BAM,3,Visual Arts,30.00 BAM
 76,Wellness Retreat: Mind and Body Renewal,2025-03-22 08:00:00,2025-03-24 17:00:00,Nurture your well-being with a rejuvenating wellness retreat.,Bjelasnica Mountain
-
- Resort,Sarajevo,health,Retreat Pass:80.0 BAM,VIP Wellness Experience:120.0 BAM,33,Wellness,80.00 BAM
 77,Book Signing Event: Bestselling Authors,2025-03-28 17:30:00,2025-03-28 20:30:00,Meet and greet bestselling authors at an exclusive book signing event.,City Library,Sarajevo,literature,Free Entry:0.0 BAM,,3,Literature,0.00 BAM
 78,Science Fair: Young Innovators Showcase,2025-04-03 13:00:00,2025-04-03 16:00:00,Explore innovative projects and ideas presented by young scientists.,Science Center,Tuzla,education,Free Entry:0.0 BAM,,3,Science & Technology,0.00 BAM
 79,Salsa Night at The Lounge,2025-04-09 21:00:00,2025-04-10 01:00:00,Immerse yourself in the energetic rhythms of salsa with a night of dancing.,The Lounge,Sarajevo,party,General Admission:20.0 BAM,Salsa Enthusiast Pass:40.0 BAM,4,Dance,20.00 BAM
