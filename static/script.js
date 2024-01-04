@@ -27,35 +27,35 @@ document.addEventListener("DOMContentLoaded", function () {
             userMessageInput.value = "";
         }
     }
-async function sendUserInput(userMessage) {
-    try {
-        const response = await fetch('/get_response', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: 'user_message=' + encodeURIComponent(userMessage),
-        });
 
-        if (!response.ok) {
-            // Handle non-OK responses here
-            console.error(`Server returned ${response.status}: ${response.statusText}`);
-            displayChatbotMessage("Unable to fetch events. Please try again later.");
-            return;
+    async function sendUserInput(userMessage) {
+        try {
+            const response = await fetch('/get_response', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'user_message=' + encodeURIComponent(userMessage),
+            });
+
+            if (!response.ok) {
+                console.error(`Server returned ${response.status}: ${response.statusText}`);
+                displayChatbotMessage("Unable to fetch events. Please try again later.");
+                return;
+            }
+
+            const responseData = await response.json();
+
+            if (responseData.hasOwnProperty('events') && Array.isArray(responseData.events)) {
+                displayEventNames(responseData.events);
+            } else {
+                displayChatbotMessage(responseData.response);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            displayChatbotMessage("An unexpected error occurred while processing your request.");
         }
-
-        const responseData = await response.json();
-
-        if (responseData.hasOwnProperty('events') && Array.isArray(responseData.events)) {
-            displayEventsAsTable(responseData.events);
-        } else {
-            displayChatbotMessage(responseData.response);
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        displayChatbotMessage("An unexpected error occurred while processing your request.");
     }
-}
 
     // Display user message in the chat
     function displayUserMessage(message) {
@@ -74,7 +74,35 @@ async function sendUserInput(userMessage) {
         chatContainer.appendChild(chatbotMessageElement);
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
+
+// Function to display event names
+function displayEventNames(events) {
+    if (events.length === 0) {
+        displayChatbotMessage("No events available at the moment.");
+        return;
+    }
+    // Check if the first element is a string or an object to determine how to process
+    let isStringArray = typeof events[0] === 'string';
+    let message = "Events you might be interested in: ";
+    let eventNames;
+
+    if (isStringArray) {
+        eventNames = events.join(', ');
+    } else {
+        eventNames = events.map(event => event.name || 'Unnamed Event').join(', ');
+    }
+
+    message += eventNames;
+    displayChatbotMessage(message);
+}
+
+
+
+
 });
+
+
+/*
 
 function displayEventsAsTable(events) {
     console.log("Displaying events as table", events); // Log the events data for debugging
@@ -111,3 +139,4 @@ function displayEventsAsTable(events) {
     chatContainer.appendChild(table);
     chatContainer.scrollTop = chatContainer.scrollHeight; // Scroll to the bottom of the chat
 }
+*/

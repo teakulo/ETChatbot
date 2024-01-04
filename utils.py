@@ -1,3 +1,4 @@
+import re
 import numpy as np
 import pandas as pd
 import spacy
@@ -24,25 +25,40 @@ def parse_date(date_string):
     return dateparser.parse(date_string)
 
 def format_events_info(events):
-    if not events:
-        return "No events available."
+    # Simplified to return just the names of the events
+    return [event.get('name', 'N/A') for event in events]
 
-    formatted_info = "Upcoming Events:\n"
-    formatted_info += "-" * 20 + "\n"
-
-    for event in events:
-        formatted_info += f"Name: {event.get('name', 'N/A')}\n"
-        formatted_info += f"City: {event.get('city', 'N/A')}\n"
-        formatted_info += f"Genre: {event.get('genre', 'N/A')}\n"
-        formatted_info += f"Price: {event.get('price', 'N/A')}\n"
-        formatted_info += "-" * 20 + "\n"
-
-    return formatted_info
-
-def extract_entities(message):
+def extract_message_entities(message):
     doc = nlp(message)
-    return [(ent.text, ent.label_) for ent in doc.ents]
 
+    # Extract locations (cities and venues)
+    locations = [ent.text.lower() for ent in doc.ents if ent.label_ == 'GPE']
+
+    # Extract and process dates
+    extracted_dates = [ent.text for ent in doc.ents if ent.label_ == 'DATE']
+    dates = []
+    for date in extracted_dates:
+        parsed_date = dateparser.parse(date)
+        if parsed_date:
+            dates.append(parsed_date.strftime('%Y-%m-%d'))
+
+    # Extract event keywords
+    keywords = [token.lemma_.lower() for token in doc if token.is_alpha and not token.is_stop]
+
+    # Extract prices using a regular expression
+    # This regex looks for numbers followed by 'BAM'
+    price_pattern = r'\b\d+\s*BAM\b'
+    prices = re.findall(price_pattern, message)
+
+    # Combine all extracted information into a dictionary
+    extracted_entities = {
+        'locations': locations,
+        'dates': dates,
+        'keywords': keywords,
+        'prices': prices
+    }
+
+    return extracted_entities
 
 def load_events_data(csv_file_path):
     events_dataset = []
@@ -50,21 +66,12 @@ def load_events_data(csv_file_path):
         with open(csv_file_path, newline='', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
-                # Ensure that the row is a dictionary and the key exists before trying to modify it
-                if 'city' in row and row['city']:
-                    row['city'] = row['city'].lower()
-                else:
-                    row['city'] = ''
-
-                if 'category' in row and row['category']:
-                    row['category'] = row['category'].lower()
-                else:
-                    row['category'] = ''
-
-                if 'genre' in row and row['genre']:
-                    row['genre'] = row['genre'].lower()
-                else:
-                    row['genre'] = ''
+                essential_keys = ['name', 'city', 'category', 'genre']
+                if not all(key in row and row[key] and row[key].strip() for key in essential_keys):
+                    print(f"Warning: Event missing essential information in CSV file at row: {row}")
+                    continue
+                for key in essential_keys:
+                    row[key] = row[key].lower().strip()
 
                 events_dataset.append(row)
     except FileNotFoundError:
@@ -73,8 +80,8 @@ def load_events_data(csv_file_path):
         print(f"Error loading data: {e}")
     return events_dataset
 
+
 def extract_keywords_from_descriptions(descriptions, top_n=5):
-    vectorizer = TfidfVectorizer()
     tfidf_matrix = vectorizer.fit_transform(descriptions)
     feature_array = np.array(vectorizer.get_feature_names_out())
     tfidf_sorting = np.argsort(tfidf_matrix.toarray()).flatten()[::-1]
@@ -98,12 +105,10 @@ def classify_query(query):
 def encode_query(query, event_keywords=None, genre_keywords=None):
     doc = nlp(query.lower())
     query_type = classify_query(query)
-
     if query_type != 'event_recommendation':
         return query_type, None
 
     encoded_features = []
-
     locations = [ent.text for ent in doc.ents if ent.label_ == 'GPE']
     categories = [keyword for keyword in event_keywords if keyword in query.lower()]
     genres = [genre for genre in genre_keywords if genre in query.lower()]

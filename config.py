@@ -1,1 +1,1 @@
-categorical_features = ['city', 'category', 'genre']
+categorical_features = ['city', 'category', 'genre', 'price']
