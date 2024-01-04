@@ -27,13 +27,22 @@ def get_response():
             return jsonify({'response': "Hello! How can I help you today?"})
         # Handle the event inquiry intent
         elif intent == 'EVENT_INQUIRY':
-            # Select 5 random events from the dataset
-            if len(events_dataset) > 5:
-                recommended_events = random.sample(events_dataset, 5)
-            else:
-                recommended_events = events_dataset
+            extracted_entities = utils.extract_message_entities(user_message)
 
-            # Respond with the names of the selected events
+            # Filter events based on extracted entities
+            filtered_events = [event for event in events_dataset if
+                               utils.event_matches_criteria(event, extracted_entities)]
+            if not filtered_events:  # No specific criteria or no matching events
+                if len(events_dataset) > 5:
+                    recommended_events = random.sample(events_dataset, 5)
+                else:
+                    recommended_events = events_dataset
+            else:  # Specific criteria given
+                if len(filtered_events) > 5:
+                    recommended_events = random.sample(filtered_events, 5)
+                else:
+                    recommended_events = filtered_events
+
             event_names = [event['name'] for event in recommended_events if 'name' in event]
             return jsonify({'events': event_names})
         else:

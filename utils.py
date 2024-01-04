@@ -102,6 +102,18 @@ def classify_query(query):
     else:
         return 'general'
 
+
+def event_matches_criteria(event, extracted_entities):
+    # Not all criteria need to match, but there should be at least one match
+    matches_location = any(loc in [event.get('city', '').lower(), event.get('venue', '').lower()] for loc in
+                           extracted_entities['locations'])
+    matches_date = any(date in event.get('start_time', '') for date in extracted_entities['dates'])
+    matches_keywords = any(
+        keyword in event.get('description', '').lower() for keyword in extracted_entities['keywords'])
+
+    return matches_location or matches_date or matches_keywords
+
+
 def encode_query(query, event_keywords=None, genre_keywords=None):
     doc = nlp(query.lower())
     query_type = classify_query(query)
@@ -109,7 +121,7 @@ def encode_query(query, event_keywords=None, genre_keywords=None):
         return query_type, None
 
     encoded_features = []
-    locations = [ent.text for ent in doc.ents if ent.label_ == 'GPE']
+    locations = [ent.text.lower() for ent in doc.ents if ent.label_ == 'GPE']
     categories = [keyword for keyword in event_keywords if keyword in query.lower()]
     genres = [genre for genre in genre_keywords if genre in query.lower()]
 
@@ -134,12 +146,12 @@ def encode_query(query, event_keywords=None, genre_keywords=None):
 
 def recommend_events_knn(encoded_query):
     distances, indices = knn.kneighbors([encoded_query])
-    return [df.iloc[i]['name'] for i in indices[0]]
+    recommended_event_indices = indices[0]
+    print(f"kNN Distances: {distances}")
+    print(f"kNN Indices: {indices}")
+    return [df.iloc[i]['name'] for i in recommended_event_indices]
 
-# -----------------------------
 # Data Preprocessing
-# -----------------------------
-
 events_dataset = load_events_data('sample_events.csv')
 df = pd.DataFrame(events_dataset)
 df[categorical_features] = df[categorical_features].apply(lambda x: x.fillna('unknown'))
