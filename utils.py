@@ -30,9 +30,11 @@ def format_events_info(events):
 
 def extract_message_entities(message):
     doc = nlp(message)
+    print(f"Analyzing message: {message}")
 
     # Extract locations (cities and venues)
     locations = [ent.text.lower() for ent in doc.ents if ent.label_ == 'GPE']
+    print(f"Extracted locations: {locations}")
 
     # Extract and process dates
     extracted_dates = [ent.text for ent in doc.ents if ent.label_ == 'DATE']
@@ -40,25 +42,33 @@ def extract_message_entities(message):
     for date in extracted_dates:
         parsed_date = dateparser.parse(date)
         if parsed_date:
-            dates.append(parsed_date.strftime('%Y-%m-%d'))
+            formatted_date = parsed_date.strftime('%Y-%m-%d')
+            dates.append(formatted_date)
+    print(f"Extracted dates: {dates}")
 
     # Extract event keywords
     keywords = [token.lemma_.lower() for token in doc if token.is_alpha and not token.is_stop]
+    print(f"Extracted keywords: {keywords}")
 
-    # Extract prices using a regular expression
-    # This regex looks for numbers followed by 'BAM'
-    price_pattern = r'\b\d+\s*BAM\b'
+    # Extract prices
+    price_pattern = r'\b\d+(\.\d+)?\s*BAM\b'
     prices = re.findall(price_pattern, message)
+    print(f"Extracted prices: {prices}")
 
-    # Combine all extracted information into a dictionary
+    # Extract categories
+    extracted_categories = [token.lemma_.lower() for token in doc if token.pos_ in ['NOUN', 'ADJ']]
+    print(f"Extracted categories: {extracted_categories}")
+
     extracted_entities = {
         'locations': locations,
         'dates': dates,
         'keywords': keywords,
-        'prices': prices
+        'prices': prices,
+        'categories': extracted_categories
     }
 
     return extracted_entities
+
 
 def load_events_data(csv_file_path):
     events_dataset = []
@@ -95,7 +105,7 @@ def extract_genre_keywords(events, top_n=5):
     return sorted(filtered_words, key=lambda word: word_count[word], reverse=True)[:top_n]
 
 def classify_query(query):
-    if any(word in query.lower() for word in ['event', 'concert', 'show', 'exhibition']):
+    if any(word in query.lower() for word in ['event']):
         return 'event_recommendation'
     elif any(word in query.lower() for word in ['help', 'how', 'what']):
         return 'help'
@@ -104,14 +114,15 @@ def classify_query(query):
 
 
 def event_matches_criteria(event, extracted_entities):
-    # Not all criteria need to match, but there should be at least one match
-    matches_location = any(loc in [event.get('city', '').lower(), event.get('venue', '').lower()] for loc in
-                           extracted_entities['locations'])
+    matches_location = any(loc in [event.get('city', '').lower(), event.get('venue', '').lower()] for loc in extracted_entities['locations'])
     matches_date = any(date in event.get('start_time', '') for date in extracted_entities['dates'])
-    matches_keywords = any(
-        keyword in event.get('description', '').lower() for keyword in extracted_entities['keywords'])
+    matches_keywords = any(keyword in event.get('description', '').lower() for keyword in extracted_entities['keywords'])
+    matches_category = any(category in event.get('category', '').lower() for category in extracted_entities['categories'])
 
-    return matches_location or matches_date or matches_keywords
+    # Debugging: Print out the matching status for each criteria
+    print(f"Event: {event.get('name')}, Matches Location: {matches_location}, Matches Date: {matches_date}, Matches Keywords: {matches_keywords}, Matches Category: {matches_category}")
+
+    return matches_location or matches_date or matches_keywords or matches_category
 
 
 def encode_query(query, event_keywords=None, genre_keywords=None):
@@ -144,12 +155,12 @@ def encode_query(query, event_keywords=None, genre_keywords=None):
 
     return np.array(encoded_features)
 
-def recommend_events_knn(encoded_query):
-    distances, indices = knn.kneighbors([encoded_query])
-    recommended_event_indices = indices[0]
-    print(f"kNN Distances: {distances}")
-    print(f"kNN Indices: {indices}")
-    return [df.iloc[i]['name'] for i in recommended_event_indices]
+# def recommend_events_knn(encoded_query):
+#     distances, indices = knn.kneighbors([encoded_query])
+#     recommended_event_indices = indices[0]
+#     print(f"kNN Distances: {distances}")
+#     print(f"kNN Indices: {indices}")
+#     return [df.iloc[i]['name'] for i in recommended_event_indices]
 
 # Data Preprocessing
 events_dataset = load_events_data('sample_events.csv')
@@ -160,5 +171,5 @@ features = one_hot.transform(df[categorical_features]).toarray()
 tfidf_description = vectorizer.fit_transform(df['description'])
 features = np.hstack((features, tfidf_description.toarray()))
 
-knn = NearestNeighbors(n_neighbors=5)
-knn.fit(features)
+#knn = NearestNeighbors(n_neighbors=5)
+#knn.fit(features)

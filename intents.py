@@ -1,3 +1,5 @@
+import re
+
 import spacy
 from spacy.matcher import Matcher
 
@@ -15,8 +17,19 @@ matcher.add("EVENT_INQUIRY", [event_pattern])
 def classify_intent(message):
     doc = nlp(message)
     matches = matcher(doc)
+
+    # Check for predefined patterns first
     for match_id, start, end in matches:
         span = doc[start:end]
         intent = nlp.vocab.strings[match_id]
         return intent
+
+    # Entity extraction for more specific intents
+    if any(ent.label_ == 'GPE' for ent in doc.ents):  # Check for locations
+        return 'LOCATION_INQUIRY'
+    if re.search(r'\b\d+(\.\d+)?\s*BAM\b', message):  # Check for prices
+        return 'PRICE_INQUIRY'
+    if any(token.pos_ in ['NOUN', 'ADJ'] for token in doc):  # Check for categories/keywords
+        return 'CATEGORY_KEYWORD_INQUIRY'
+
     return "unknown_intent"

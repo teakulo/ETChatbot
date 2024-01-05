@@ -1,18 +1,22 @@
 import random
+import re
+from datetime import timedelta
+
+import dateparser
 import numpy as np
 from flask import Flask, render_template, request
 from sklearn.neighbors import NearestNeighbors
 from flask import jsonify
 import utils
-from intents import classify_intent
+from intents import classify_intent, nlp
 
 app = Flask(__name__)
 
 events_dataset = utils.load_events_data('sample_events.csv')
 
 # Set up KNN
-knn = NearestNeighbors(n_neighbors=5)
-knn.fit(utils.features)
+#knn = NearestNeighbors(n_neighbors=5)
+#knn.fit(utils.features)
 
 @app.route('/')
 def index():
@@ -21,72 +25,111 @@ def index():
 def get_response():
     try:
         user_message = request.form['user_message']
+        print(f"Received user message: {user_message}")  # Debugging
         intent = classify_intent(user_message)
+        print(f"Identified intent: {intent}")  # Debugging
 
         if intent == 'GREETING':
             return jsonify({'response': "Hello! How can I help you today?"})
-        # Handle the event inquiry intent
-        elif intent == 'EVENT_INQUIRY':
-            extracted_entities = utils.extract_message_entities(user_message)
 
-            # Filter events based on extracted entities
-            filtered_events = [event for event in events_dataset if
-                               utils.event_matches_criteria(event, extracted_entities)]
-            if not filtered_events:  # No specific criteria or no matching events
-                if len(events_dataset) > 5:
-                    recommended_events = random.sample(events_dataset, 5)
-                else:
-                    recommended_events = events_dataset
-            else:  # Specific criteria given
-                if len(filtered_events) > 5:
-                    recommended_events = random.sample(filtered_events, 5)
-                else:
-                    recommended_events = filtered_events
+        if intent == 'LOCATION_INQUIRY':
+            return handle_location_inquiry(user_message)
 
-            event_names = [event['name'] for event in recommended_events if 'name' in event]
-            return jsonify({'events': event_names})
-        else:
-            # Handle other intents based on the classified query type
-            query_type = utils.classify_query(user_message)
-            if query_type == 'event_recommendation':
-                # Process event recommendation
-                parsed_date = utils.parse_date(user_message)
-                if parsed_date:
-                    formatted_date = parsed_date.strftime('%Y-%m-%d')
-                    recommended_events = [
-                        event for event in events_dataset
-                        if isinstance(event, dict) and formatted_date in event.get('start_time', '')
-                    ]
-                    if recommended_events:
-                        events_info = [{'name': event['name']} for event in recommended_events]
-                        return jsonify({'events': events_info})
-                    else:
-                        return jsonify({'response': "No events found around that date."})
-                else:
-                    event_keywords = utils.extract_keywords_from_descriptions(
-                        [event['description'] for event in events_dataset]
-                    )
-                    genre_keywords = utils.extract_genre_keywords(events_dataset)
-                    encoded_query = utils.encode_query(user_message, event_keywords, genre_keywords)
+        if intent == 'PRICE_INQUIRY':
+            return handle_price_inquiry(user_message)
 
-                    if isinstance(encoded_query, np.ndarray):
-                        recommended_events_indices = knn.kneighbors([encoded_query], return_distance=False)
-                        recommended_events = [events_dataset[i] for i in recommended_events_indices[0]]
-                        events_info = [{'name': event['name']} for event in recommended_events]
-                        return jsonify({'events': events_info})
-                    else:
-                        return jsonify({'response': "No matching events found."})
+        if intent == 'CATEGORY_KEYWORD_INQUIRY':
+            return handle_category_keyword_inquiry(user_message, events_dataset)
 
-            elif query_type == 'help':
-                return jsonify({
-                    'response': "You can ask me about events, locations, and times."
-                })
-            else:
-                return jsonify({'response': "Hi there! How can I assist you with event information today?"})
+        # For unrecognized intents
+        return handle_unrecognized_intent()
 
     except Exception as e:
-        print(f"An error occurred in get_response: {e}")
+        print(f"An error occurred in get_response: {e}")  # Debugging
         return jsonify({'response': "Sorry, I encountered an error processing your request."})
+
+def handle_location_inquiry(user_message):
+    doc = nlp(user_message)
+    locations = [ent.text for ent in doc.ents if ent.label_ == 'GPE']
+
+    if locations:
+        response = f"Sure, here are some events in {', '.join(locations)}:"
+    else:
+        response = "I'm sorry, I couldn't detect a location in your inquiry."
+
+    return jsonify({'response': response})
+def handle_price_inquiry(user_message):
+    price_pattern = r'\b\d+(\.\d+)?\s*BAM\b'
+    prices = re.findall(price_pattern, user_message)
+
+    if prices:
+        response = f"Sure, here are some events within your budget of {', '.join(prices)} BAM:"
+    else:
+        response = "I'm sorry, I couldn't find any prices in your inquiry."
+
+    return jsonify({'response': response})
+
+
+def handle_category_keyword_inquiry(user_message, events_dataset):
+    # Extract entities and keywords from the message
+    extracted_entities = utils.extract_message_entities(user_message)
+
+    matching_events = []
+
+    # Iterate through the events dataset
+    for event in events_dataset:
+        # Check if the event matches the extracted criteria
+        if utils.event_matches_criteria(event, extracted_entities):
+            matching_events.append(event['name'])  # Add the event name to the list
+        # Determine the time frame from the user's message
+    time_frame = get_time_frame(user_message)
+
+    matching_events = []
+
+    for event in events_dataset:
+        event_date = dateparser.parse(event.get('date'))  # Assuming each event has a 'date' key
+        # Check if the event date falls within the time frame
+        if time_frame and event_date and time_frame <= event_date <= time_frame + timedelta(days=1):
+            if utils.event_matches_criteria(event, extracted_entities):
+                matching_events.append(event['name'])
+
+    if matching_events:
+        response = f"Here are some events that match your query: {', '.join(matching_events)}."
+    else:
+        response = "I couldn't find any events matching your query."
+
+    return jsonify({'response': response})
+
+    # Construct the response based on the matching events
+    if matching_events:
+        response = f"Here are some events that match your query: {', '.join(matching_events)}."
+    else:
+        response = "I couldn't find any events that match your query."
+
+    return jsonify({'response': response})
+
+
+
+def handle_unrecognized_intent():
+    # Inform the user that the query wasn't understood
+    return jsonify({'response': "I'm sorry, I didn't understand your query."})
+
+def handle_event_inquiry(user_message):
+    extracted_entities = utils.extract_message_entities(user_message)
+    print(f"Extracted entities: {extracted_entities}")  # Debugging
+
+    # Filter events based on extracted entities
+    filtered_events = [event for event in events_dataset if utils.event_matches_criteria(event, extracted_entities)]
+    print(f"Filtered events: {filtered_events}")  # Debugging
+
+    if not filtered_events:  # No specific criteria or no matching events
+        recommended_events = random.sample(events_dataset, 5) if len(events_dataset) > 5 else events_dataset
+    else:
+        recommended_events = filtered_events[:5]
+
+    event_names = [event['name'] for event in recommended_events if 'name' in event]
+    return jsonify({'events': event_names})
+
 
 if __name__ == '__main__':
     app.run(debug=True)
