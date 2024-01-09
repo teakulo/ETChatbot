@@ -28,34 +28,37 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    async function sendUserInput(userMessage) {
-        try {
-            const response = await fetch('/get_response', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: 'user_message=' + encodeURIComponent(userMessage),
-            });
+async function sendUserInput(userMessage) {
+    try {
+        const response = await fetch('/get_response', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'user_message=' + encodeURIComponent(userMessage),
+        });
 
-            if (!response.ok) {
-                console.error(`Server returned ${response.status}: ${response.statusText}`);
-                displayChatbotMessage("Unable to fetch events. Please try again later.");
-                return;
-            }
-
-            const responseData = await response.json();
-
-            if (responseData.hasOwnProperty('events') && Array.isArray(responseData.events)) {
-                displayEventNames(responseData.events);
-            } else {
-                displayChatbotMessage(responseData.response);
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            displayChatbotMessage("An unexpected error occurred while processing your request.");
+        if (!response.ok) {
+            throw new Error(`Server returned ${response.status}: ${response.statusText}`);
         }
+
+        const responseHtml = await response.text();  // Get response as text
+        displayChatbotMessage(responseHtml, true);  // Pass true to indicate it's HTML content
+    } catch (error) {
+        console.error('Error:', error);
+        displayChatbotMessage("An unexpected error occurred while processing your request.");
     }
+}
+
+
+function displayChatbotMessage(message) {
+    const chatbotMessageElement = document.createElement("div");
+    chatbotMessageElement.className = "chatbot-message";
+    chatbotMessageElement.innerHTML = message; // Set innerHTML to render HTML content
+    chatContainer.appendChild(chatbotMessageElement);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
 
     // Display user message in the chat
     function displayUserMessage(message) {
@@ -63,15 +66,6 @@ document.addEventListener("DOMContentLoaded", function () {
         userMessageElement.className = "user-message";
         userMessageElement.textContent = message;
         chatContainer.appendChild(userMessageElement);
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-    }
-
-    // Display chatbot response in the chat
-    function displayChatbotMessage(message) {
-        const chatbotMessageElement = document.createElement("div");
-        chatbotMessageElement.className = "chatbot-message";
-        chatbotMessageElement.textContent = message;
-        chatContainer.appendChild(chatbotMessageElement);
         chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
