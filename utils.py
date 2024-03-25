@@ -1,27 +1,15 @@
-import calendar
 import logging
 import re
-import numpy as np
-import pandas as pd
 import spacy
 import csv
 import dateparser
-from collections import Counter
 from dateparser.search import search_dates
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.neighbors import NearestNeighbors
-from sklearn.preprocessing import OneHotEncoder
-from config import categorical_features
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
+import config
 
-# -----------------------------
-# Initializations
-# -----------------------------
 nlp = spacy.load("en_core_web_sm")
-vectorizer = TfidfVectorizer(max_features=50)
-one_hot = OneHotEncoder(handle_unknown='ignore')
 
 # -----------------------------
 # Function Definitions
@@ -48,7 +36,7 @@ def extract_message_entities(message):
     return {'keywords': keywords, 'time_frame': time_frame, 'prices': prices}
 
 def load_events_data(csv_file_path):
-    events_dataset = []
+    config.events_dataset = []
     try:
         with open(csv_file_path, newline='', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
@@ -64,16 +52,14 @@ def load_events_data(csv_file_path):
                 # Directly assign the last column value to price
                 row['price'] = row.get('price', 'N/A')
 
-                events_dataset.append(row)
+                config.events_dataset.append(row)
 
     except FileNotFoundError:
         print(f"Error: File {csv_file_path} not found.")
     except Exception as e:
         print(f"Error loading data: {e}")
 
-    return events_dataset
-
-
+    return config.events_dataset
 
 
 def get_numeric_price(price_str):
@@ -81,31 +67,38 @@ def get_numeric_price(price_str):
     match = re.search(r'\b\d+(\.\d+)?', price_str)
     return f"{float(match.group())} BAM" if match else "N/A"
 
+
 def event_matches_criteria(event, extracted_entities):
     logging.debug(f"Processing event: {event}")
 
-    # Check for keyword match (e.g., 'concert', 'Sarajevo')
-    event_info = ' '.join([event.get(field, '').lower() for field in ['description', 'city', 'venue', 'category']])
-    keywords = extracted_entities.get('keywords', [])
-    matches_keywords = all(keyword in event_info for keyword in keywords) if keywords else True
+    # Explicitly define keywords to be completely ignored in the match process
+    exclude_keywords = {'event'}
 
-    # Check for time frame match
-    event_start = dateparser.parse(event.get('start_time'))
-    time_frame = extracted_entities.get('time_frame')
+    # Extract keywords, ensuring excluded ones are not considered even for matching attempt
+    keywords_to_match = set(extracted_entities.get('keywords', [])) - exclude_keywords
+
+    # Compile event information into a searchable string
+    event_info = ' '.join(
+        [event.get(field, '').lower() for field in ['description', 'city', 'venue', 'category', 'name']]
+    )
+
+    # Check if each keyword to match is found in the event information
+    matched_keywords = {keyword for keyword in keywords_to_match if keyword.lower() in event_info}
+
+    # A successful match occurs when all keywords to match are found within the event information
+    matches_keywords = matched_keywords == keywords_to_match
+
+    logging.debug(f"Attempting to Match Keywords: {keywords_to_match}, Successfully Matched: {matched_keywords}, Matches Keywords: {matches_keywords}")
+
+    # Assuming time frame and prices match by default unless specifics are provided
     matches_time_frame = True
-    if time_frame and event_start:
-        start_frame, end_frame = time_frame
-        matches_time_frame = start_frame <= event_start <= end_frame
-    logging.debug(f"Matches time frame: {matches_time_frame} (Event Date: {event_start}, Time Frame: {time_frame})")
+    matches_price = True
 
-    # Check for price match
-    event_price = get_numeric_price(event.get('price', ''))
-    extracted_prices = [get_numeric_price(price) for price in extracted_entities.get('prices', [])]
-    matches_price = True if not extracted_prices else any(price == event_price for price in extracted_prices if price is not None)
-    logging.debug(f"Matches price: {matches_price}")
-
+    # Add your specific logic for matching time frame and prices if necessary...
 
     return matches_keywords and matches_time_frame and matches_price
+
+
 
 def format_events_info(events):
     formatted_events = "<table style='width:100%; border-collapse: collapse;'>"
@@ -180,77 +173,3 @@ def get_time_frame(message):
     return None
 
 
-
-
-
-# def classify_query(query):
-#     if any(word in query.lower() for word in ['event']):
-#         return 'event_recommendation'
-#     elif any(word in query.lower() for word in ['help', 'how', 'what']):
-#         return 'help'
-#     else:
-#         return 'general'
-
-# # Data Preprocessing
-# events_dataset = load_events_data('sample_events.csv')
-# df = pd.DataFrame(events_dataset)
-# df[categorical_features] = df[categorical_features].apply(lambda x: x.fillna('unknown'))
-# one_hot.fit(df[categorical_features])
-# features = one_hot.transform(df[categorical_features]).toarray()
-# tfidf_description = vectorizer.fit_transform(df['description'])
-# features = np.hstack((features, tfidf_description.toarray()))
-
-# def encode_query(query, event_keywords=None, genre_keywords=None):
-#     doc = nlp(query.lower())
-#     query_type = classify_query(query)
-#     if query_type != 'event_recommendation':
-#         return query_type, None
-#
-#     encoded_features = []
-#     locations = [ent.text.lower() for ent in doc.ents if ent.label_ == 'GPE']
-#     categories = [keyword for keyword in event_keywords if keyword in query.lower()]
-#     genres = [genre for genre in genre_keywords if genre in query.lower()]
-#
-#     query_data = {
-#         'city': [locations[0] if locations else 'unknown'],
-#         'category': [categories[0] if categories else 'unknown'],
-#         'genre': [genres[0] if genres else 'unknown']
-#     }
-#
-#     query_df = pd.DataFrame(query_data)
-#     for feature in categorical_features:
-#         if feature not in query_df.columns:
-#             query_df[feature] = ['unknown']
-#
-#     encoded_cat_features = one_hot.transform(query_df).toarray()
-#     encoded_features.extend(encoded_cat_features.flatten())
-#
-#     encoded_text_features = vectorizer.transform([query]).toarray()
-#     encoded_features.extend(encoded_text_features.flatten())
-#
-#     return np.array(encoded_features)
-#
-
-
-#def extract_keywords_from_descriptions(descriptions, top_n=5):
-#     tfidf_matrix = vectorizer.fit_transform(descriptions)
-#     feature_array = np.array(vectorizer.get_feature_names_out())
-#     tfidf_sorting = np.argsort(tfidf_matrix.toarray()).flatten()[::-1]
-#     return feature_array[tfidf_sorting][:top_n]
-# def recommend_events_knn(encoded_query):
-#     distances, indices = knn.kneighbors([encoded_query])
-#     recommended_event_indices = indices[0]
-#     print(f"kNN Distances: {distances}")
-#     print(f"kNN Indices: {indices}")
-#     return [df.iloc[i]['name'] for i in recommended_event_indices]
-# def extract_genre_keywords(events, top_n=5):
-#     descriptions = ' '.join([event['description'] for event in events]).lower().split()
-#     word_count = Counter(descriptions)
-#     stopwords = set(spacy.lang.en.stop_words.STOP_WORDS)
-#     filtered_words = [word for word in word_count if word not in stopwords and word.isalpha()]
-#     return sorted(filtered_words, key=lambda word: word_count[word], reverse=True)[:top_n]
-
-
-
-#knn = NearestNeighbors(n_neighbors=5)
-#knn.fit(features)

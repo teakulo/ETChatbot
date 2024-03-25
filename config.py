@@ -1,1 +1,2 @@
-categorical_features = ['city', 'category', 'genre', 'price']
+
+events_dataset = []

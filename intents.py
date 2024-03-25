@@ -1,6 +1,9 @@
-import re
 import spacy
 from spacy.matcher import Matcher
+
+from config import events_dataset
+from dynamic_intent_classifier import classify_dynamic_intent
+from utils import extract_message_entities
 
 nlp = spacy.load("en_core_web_sm")
 matcher = Matcher(nlp.vocab)
@@ -18,8 +21,13 @@ def classify_intent(message):
         span = doc[start:end]
         return nlp.vocab.strings[match_id]
 
-    # General inquiry if no specific keywords
-    if any(ent.label_ == 'GPE' for ent in doc.ents) or re.search(r'\b\d+(\.\d+)?\s*BAM\b', message) or any(token.pos_ in ['NOUN', 'ADJ'] for token in doc):
+    if message.strip().lower() == "events?":
+        return 'GENERAL_INQUIRY'
+
+        # Delegate to the dynamic classifier for specific inquiries
+    extracted_entities = extract_message_entities(message)
+    dynamic_intent = classify_dynamic_intent(message)
+    if dynamic_intent == 'SPECIFIC_INQUIRY':
         return 'SPECIFIC_INQUIRY'
     else:
         return 'GENERAL_INQUIRY'
